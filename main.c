@@ -1,6 +1,6 @@
 /* printf() */
 #include <stdio.h>
-/* calloc(), realloc(), abort() */
+/* calloc(), realloc() */
 #include <stdlib.h>
 /* memset() */
 #include <string.h>
@@ -8,30 +8,24 @@
 #include <unistd.h>
 
 
+/* description: print out the programs usage instructions */
 void usage();
-/* example:
+/* description: increase the size of our array
+ * example:
  * increase array by 10
  * increase_array(array, &array_size, array_size + 10);
  */
-void increase_array(int *arr, int *array_size, int ns);
+void increase_array(int **arr, int *array_size, int new_size);
 
 /* Commands */
-/* > */
-void inc_dat_ptr();
-/* < */
-void dec_dat_ptr();
-/* + */
-void inc_data();
-/* - */
-void dec_data();
-/* . */
-void print_byte();
-/* , */
-void read_byte();
-/* [ */
-void start_loop();
-/* ] */
-void end_loop();
+void inc_dat_ptr(); /* > */
+void dec_dat_ptr(); /* < */
+void inc_data();    /* + */
+void dec_data();    /* - */
+void print_byte();  /* . */
+void read_byte();   /* , */
+void start_loop();  /* [ */
+void end_loop();    /* ] */
 
 /*
  * >  increment the data pointer (to point to the next cell to the right).
@@ -55,45 +49,39 @@ void end_loop();
  *   the command after the matching [ command.
  */
 
+int array_size = 5;
 int *array;
 int dat_ptr = 0;
 
 int main(int argc, char **argv) {
   int c;
-  int array_size = 1000;
   char *filename;
   FILE *fp;
+  int looking_for_exit;
 
   array = calloc(array_size, sizeof(int));
 
-  while ((c = getopt(argc, argv, "i:")) != -1) {
-    switch(c) {
-    case 'i':
-      filename = optarg;
-      if (access(filename, R_OK) == -1) {
-        printf("%s: No such file or directory\n", filename);
-        return 1;
-      }
-      break;
-    default:
-      abort();
-    }
-  }
-  if (filename == NULL) {
+  if (argc < 2) {
     usage();
     return 1;
   }
 
+  filename = argv[1];
+  if (access(filename, R_OK) == -1) {
+    printf("%s: No such file or directory\n", filename);
+    return 1;
+  }
 
-  fp = fopen(filename,"r");
+  fp = fopen(filename, "r");
   while ((c = fgetc(fp)) != EOF) {
-    //printf("%c", c);
+    if (looking_for_exit && c != ']')
+      continue;
     switch (c) {
     case '>':
-      dec_dat_ptr();
+      inc_dat_ptr();
       break;
     case '<':
-      inc_dat_ptr();
+      dec_dat_ptr();
       break;
     case '+':
       inc_data();
@@ -104,9 +92,30 @@ int main(int argc, char **argv) {
     case '.':
       print_byte();
       break;
+    case '[':
+      if (array[dat_ptr] == 0 || looking_for_exit) {
+        looking_for_exit++;
+      }
+      break;
+    case ']':
+      if (looking_for_exit) {
+        looking_for_exit--;
+        continue;
+      } else if (array[dat_ptr] != 0) {
+        // move backwards 
+      }
+      //if (array[dat_ptr] != 0) {
+      //  loop_count++;
+      //}
     }
   }
   fclose(fp);
+
+  /* Just for testing purposes */
+  /*printf("\n");*/
+  /*for (int i = 0; i < array_size; i++) {*/
+    /*printf("%d\n", array[i]);*/
+  /*}*/
 
   /* cleanup */
   free(array);
@@ -115,11 +124,13 @@ int main(int argc, char **argv) {
 }
 
 void inc_dat_ptr() {
-  ++dat_ptr;
+  if (++dat_ptr == array_size)
+    increase_array(&array, &array_size, array_size + 10);
 }
 
 void dec_dat_ptr() {
-  --dat_ptr;
+  if (--dat_ptr < 0)
+    printf("Error dat_ptr < 0");
 }
 
 void inc_data() {
@@ -131,7 +142,8 @@ void dec_data() {
 }
 
 void print_byte() {
-  printf("%c", array[dat_ptr]);
+  //printf("%c", array[dat_ptr]);
+  printf("%d", array[dat_ptr]);
 }
 
 void read_byte() {
@@ -146,12 +158,12 @@ void end_loop() {
   return;
 }
 
-void increase_array(int *arr, int *array_size_ptr, int new_size) {
-  arr = realloc(arr, new_size * sizeof(int));
-  memset(arr + *array_size_ptr, 0, (new_size - *array_size_ptr) * sizeof(int));
+void increase_array(int **arr, int *array_size_ptr, int new_size) {
+  *arr = realloc(*arr, new_size * sizeof(int));
+  memset(*arr + *array_size_ptr, 0, (new_size - *array_size_ptr) * sizeof(int));
   *array_size_ptr = new_size;
 }
 
 void usage() {
-  printf("Usage: bh -i input");
+  printf("Usage: bh [FILE]\n");
 }
