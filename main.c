@@ -4,9 +4,13 @@
 #include <stdlib.h>
 /* memset() */
 #include <string.h>
-/* getopt(), access() */
+/* access() */
 #include <unistd.h>
 
+struct loop {
+  int open;
+  int close;
+};
 
 /* description: print out the programs usage instructions */
 void usage();
@@ -16,6 +20,11 @@ void usage();
  * increase_array(array, &array_size, array_size + 10);
  */
 void increase_array(int **arr, int *array_size, int new_size);
+void increase_loops(struct loop **lps, int *loop_size, int new_size);
+
+void find_loops();
+int find_loop_open(int close);
+int find_loop_close(int open);
 
 /* Commands */
 void inc_dat_ptr(); /* > */
@@ -53,11 +62,15 @@ int array_size = 5;
 int *array;
 int dat_ptr = 0;
 
+struct loop *loops;
+int loop_size = 1;
+
+FILE *fp;
+
 int main(int argc, char **argv) {
   int c;
+  int offset;
   char *filename;
-  FILE *fp;
-  int looking_for_exit;
 
   array = calloc(array_size, sizeof(int));
 
@@ -72,10 +85,15 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  loops = calloc(loop_size, sizeof *loops);
+
   fp = fopen(filename, "r");
+
+  find_loops();
+  fseek(fp, 0, SEEK_SET);
+
   while ((c = fgetc(fp)) != EOF) {
-    if (looking_for_exit && c != ']')
-      continue;
+    break;
     switch (c) {
     case '>':
       inc_dat_ptr();
@@ -93,23 +111,21 @@ int main(int argc, char **argv) {
       print_byte();
       break;
     case '[':
-      if (array[dat_ptr] == 0 || looking_for_exit) {
-        looking_for_exit++;
+      if (array[dat_ptr] == 0) {
+        printf("jumping forward in loop\n");
+        offset = find_loop_close(ftell(fp));
+        /*fseek(fp, offset, SEEK_SET);*/
       }
       break;
     case ']':
-      if (looking_for_exit) {
-        looking_for_exit--;
-        continue;
-      } else if (array[dat_ptr] != 0) {
-        // move backwards 
+      if (array[dat_ptr] != 0) {
+        offset = find_loop_open(ftell(fp));
+        printf("Jumping back in loop: offset %d\n", offset);
+        /*fseek(fp, offset, SEEK_SET);*/
       }
-      //if (array[dat_ptr] != 0) {
-      //  loop_count++;
-      //}
+      break;
     }
   }
-  fclose(fp);
 
   /* Just for testing purposes */
   /*printf("\n");*/
@@ -118,6 +134,8 @@ int main(int argc, char **argv) {
   /*}*/
 
   /* cleanup */
+  fclose(fp);
+  free(loops);
   free(array);
   printf("\n");
   return 0;
@@ -142,8 +160,8 @@ void dec_data() {
 }
 
 void print_byte() {
-  //printf("%c", array[dat_ptr]);
-  printf("%d", array[dat_ptr]);
+  printf("%c", array[dat_ptr]);
+  //printf("%d", array[dat_ptr]);
 }
 
 void read_byte() {
@@ -162,6 +180,57 @@ void increase_array(int **arr, int *array_size_ptr, int new_size) {
   *arr = realloc(*arr, new_size * sizeof(int));
   memset(*arr + *array_size_ptr, 0, (new_size - *array_size_ptr) * sizeof(int));
   *array_size_ptr = new_size;
+}
+
+void increase_loops(struct loop **lps, int *loops_size_ptr, int new_size) {
+  *lps = realloc(*lps, new_size * sizeof(*loops));
+  memset(*lps + *loops_size_ptr, 0,
+      (new_size - *loops_size_ptr) * sizeof(*lps));
+  *loops_size_ptr = new_size;
+}
+
+void find_loops() {
+  int c;
+  int i = 0;
+  int open_loops = 0;
+
+  fseek(fp, 0, SEEK_SET);
+  while ((c = fgetc(fp)) != EOF) {
+    switch (c) {
+    case '[':
+      if (i + 1 == loop_size)
+        increase_loops(&loops, &loop_size, loop_size + 1);
+
+      loops[i++].open = ftell(fp);
+
+      open_loops++;
+
+      break;
+    case ']':
+      /* i - 1 ? */
+      loops[i - 1].close = ftell(fp);
+      if (--open_loops)
+        i--;
+      break;
+    }
+  }
+  
+  for (int j = 0; j < loop_size; j++)
+    printf("loop %d: %d %d\n", j, loops[j].open, loops[j].close);
+}
+
+int find_loop_open(int close) {
+  for (int i = 0; i < loop_size; i++)
+    if (loops[i].close == close)
+      return loops[i].open;
+  return -1;
+}
+
+int find_loop_close(int open) {
+  for (int i = 0; i < loop_size; i++)
+    if (loops[i].open == open)
+      return loops[i].close;
+  return -1;
 }
 
 void usage() {
