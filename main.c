@@ -14,17 +14,13 @@ struct loop {
 
 /* description: print out the programs usage instructions */
 void usage();
-/* description: increase the size of our array
- * example:
- * increase array by 10
- * increase_array(array, &array_size, array_size + 10);
- */
+/* description: increase the size of our array */
 void increase_array(int **arr, int *array_size, int new_size);
 void increase_loops(struct loop **lps, int *loop_size, int new_size);
 
-void find_loops(int *index);
-int find_loop_open(int close);
-int find_loop_close(int open);
+void find_loops(FILE *stream, int *index);
+int get_loop_open(int close);
+int get_loop_close(int open);
 
 /* Commands */
 void inc_dat_ptr(); /* > */
@@ -85,14 +81,13 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  loops = calloc(loop_size, sizeof *loops);
 
   fp = fopen(filename, "r");
+  loops = calloc(loop_size, sizeof *loops);
 
   int index = 0;
-  find_loops(&index);
+  find_loops(fp, &index);
 
-  rewind(fp);
   while ((c = fgetc(fp)) != EOF) {
     switch (c) {
     case '>':
@@ -115,13 +110,13 @@ int main(int argc, char **argv) {
       break;
     case '[':
       if (array[dat_ptr] == 0) {
-        offset = find_loop_close(ftell(fp));
+        offset = get_loop_close(ftell(fp));
         fseek(fp, offset, SEEK_SET);
       }
       break;
     case ']':
       if (array[dat_ptr] != 0) {
-        offset = find_loop_open(ftell(fp));
+        offset = get_loop_open(ftell(fp));
         fseek(fp, offset, SEEK_SET);
       }
       break;
@@ -190,11 +185,12 @@ void increase_loops(struct loop **lps, int *loops_size_ptr, int new_size) {
   *loops_size_ptr = new_size;
 }
 
-void find_loops(int *index) {
+void find_loops(FILE *stream, int *index) {
   int c;
   int tmp = -1;
 
-  while ((c = fgetc(fp)) != EOF) {
+
+  while ((c = fgetc(stream)) != EOF) {
     switch (c) {
     case '[':
       if (*index + 1 >= loop_size)
@@ -202,33 +198,34 @@ void find_loops(int *index) {
 
       tmp = *index;
 
-      loops[*index].open = ftell(fp);
+      loops[*index].open = ftell(stream);
       (*index)++;
 
-      find_loops(index);
-
+      find_loops(stream, index);
       break;
     case ']':
       if (tmp == -1) {
-        fseek(fp, -1, SEEK_CUR);
+        fseek(stream, -1, SEEK_CUR);
         return;
       }
 
-      loops[tmp].close = ftell(fp);
+      loops[tmp].close = ftell(stream);
       tmp = -1;
       break;
     }
   }
+  
+  rewind(fp);
 }
 
-int find_loop_open(int close) {
+int get_loop_open(int close) {
   for (int i = 0; i < loop_size; i++)
     if (loops[i].close == close)
       return loops[i].open;
   return -1;
 }
 
-int find_loop_close(int open) {
+int get_loop_close(int open) {
   for (int i = 0; i < loop_size; i++)
     if (loops[i].open == open)
       return loops[i].close;
