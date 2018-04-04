@@ -1,5 +1,5 @@
 CC=gcc
-FLAGS=-Wall -Wextra -Wshadow -std=gnu99 -g
+FLAGS=-Wall -Wextra -Wshadow -std=gnu99 -g -fsanitize=address,undefined
 LIBS=
 BIN=/usr/bin/
 

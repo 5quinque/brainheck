@@ -22,7 +22,7 @@ void usage();
 void increase_array(int **arr, int *array_size, int new_size);
 void increase_loops(struct loop **lps, int *loop_size, int new_size);
 
-void find_loops();
+void find_loops(int depth);
 int find_loop_open(int close);
 int find_loop_close(int open);
 
@@ -63,7 +63,7 @@ int *array;
 int dat_ptr = 0;
 
 struct loop *loops;
-int loop_size = 1;
+int loop_size = 0;
 
 FILE *fp;
 
@@ -89,8 +89,12 @@ int main(int argc, char **argv) {
 
   fp = fopen(filename, "r");
 
-  find_loops();
-  fseek(fp, 0, SEEK_SET);
+  find_loops(0);
+  for (int j = 0; j < loop_size; j++)
+    printf("loop %d: %d %d\n", j, loops[j].open, loops[j].close);
+
+  /*fseek(fp, 0, SEEK_SET);*/
+  rewind(fp);
 
   while ((c = fgetc(fp)) != EOF) {
     break;
@@ -189,35 +193,64 @@ void increase_loops(struct loop **lps, int *loops_size_ptr, int new_size) {
   *loops_size_ptr = new_size;
 }
 
-void find_loops() {
-  int c;
-  int i = 0;
-  int open_loops = 0;
+/*
+ * every time you find an open bracket you create a new struct of that type and add it to they array and call the function again. And every time you find a closing bracket you go up one level. If the current index of that iteration (depth) is zero means that the next index iteration (on the array) will be the size of the array, otherwise it'll be the current index(on the array) + 1.
+ */
 
-  fseek(fp, 0, SEEK_SET);
+void find_loops(int depth) {
+  int index = 0;
+  int c;
   while ((c = fgetc(fp)) != EOF) {
     switch (c) {
     case '[':
-      if (i + 1 == loop_size)
+      if (index + 1 >= loop_size)
         increase_loops(&loops, &loop_size, loop_size + 1);
 
-      loops[i++].open = ftell(fp);
 
-      open_loops++;
+      loops[index].open = ftell(fp);
+
+      index++;
 
       break;
     case ']':
-      /* i - 1 ? */
-      loops[i - 1].close = ftell(fp);
-      if (--open_loops)
-        i--;
+      loops[index-1].close = ftell(fp);
       break;
     }
   }
-  
-  for (int j = 0; j < loop_size; j++)
-    printf("loop %d: %d %d\n", j, loops[j].open, loops[j].close);
 }
+
+//void find_loops() {
+//  int c;
+//  int i = 0;
+//  int open_loops = 0;
+//
+//  fseek(fp, 0, SEEK_SET);
+//  while ((c = fgetc(fp)) != EOF) {
+//    switch (c) {
+//    case '[':
+//      /*
+//       */
+//      break;
+//      if (i + 1 == loop_size)
+//        increase_loops(&loops, &loop_size, loop_size + 1);
+//
+//      loops[i++].open = ftell(fp);
+//
+//      open_loops++;
+//
+//      break;
+//    case ']':
+//      /* i - 1 ? */
+//      loops[i - 1].close = ftell(fp);
+//      if (--open_loops)
+//        i--;
+//      break;
+//    }
+//  }
+//  
+//  for (int j = 0; j < loop_size; j++)
+//    printf("loop %d: %d %d\n", j, loops[j].open, loops[j].close);
+//}
 
 int find_loop_open(int close) {
   for (int i = 0; i < loop_size; i++)
@@ -236,3 +269,4 @@ int find_loop_close(int open) {
 void usage() {
   printf("Usage: bh [FILE]\n");
 }
+
