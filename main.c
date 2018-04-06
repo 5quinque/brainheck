@@ -54,7 +54,7 @@ void end_loop();    /* ] */
  *   the command after the matching [ command.
  */
 
-int array_size = 5;
+int array_size = 500;
 int *array;
 int dat_ptr = 0;
 
@@ -81,14 +81,16 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-
   fp = fopen(filename, "r");
-  loops = calloc(loop_size, sizeof *loops);
 
   int index = 0;
   find_loops(fp, &index);
+  for (int j = 0; j < loop_size; j++)
+    printf("loop %d: %d %d\n", j, loops[j].open, loops[j].close); 
 
   while ((c = fgetc(fp)) != EOF) {
+    printf("%ld%c ", ftell(fp), c);
+    continue;
     switch (c) {
     case '>':
       inc_dat_ptr();
@@ -109,12 +111,15 @@ int main(int argc, char **argv) {
       read_byte();
       break;
     case '[':
+      //printf("[ Attempting to access %d\n", dat_ptr);
       if (array[dat_ptr] == 0) {
         offset = get_loop_close(ftell(fp));
+        printf("At: %ld jumping %d\n", ftell(fp), offset);
         fseek(fp, offset, SEEK_SET);
       }
       break;
     case ']':
+      //printf("] Attempting to access %d\n", dat_ptr);
       if (array[dat_ptr] != 0) {
         offset = get_loop_open(ftell(fp));
         fseek(fp, offset, SEEK_SET);
@@ -189,12 +194,11 @@ void find_loops(FILE *stream, int *index) {
   int c;
   int tmp = -1;
 
-
   while ((c = fgetc(stream)) != EOF) {
     switch (c) {
     case '[':
-      if (*index + 1 >= loop_size)
-        increase_loops(&loops, &loop_size, loop_size + 5);
+      if (*index == loop_size)
+        increase_loops(&loops, &loop_size, loop_size + 1);
 
       tmp = *index;
 
